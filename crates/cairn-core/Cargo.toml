@@ -1,0 +1,17 @@
+[package]
+name = "cairn-core"
+version = "0.1.0"
+description = "Coeur metier de Cairn, sans entrees-sorties et sans dependance a Tauri"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+
+[dependencies]
+ed25519-dalek = { version = "2.1.1", default-features = false, features = ["std"] }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+getrandom = "0.3.4"
+# Uniquement pour les tests : ils rejouent des reponses reelles de l'API
+# pour verifier que les champs absents ne font pas perdre la liste.
+serde_json = "1"

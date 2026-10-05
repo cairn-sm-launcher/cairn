@@ -1,0 +1,33 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# Rust
+target/
+src-tauri/target/
+src-tauri/gen/
+
+# Journaux et rapports produits a l'execution
+*.log
+
+# Caisse de bibliotheque, son verrou ne sert qu aux tests isoles
+crates/*/Cargo.lock
+
+# Captures produites par les scripts de verification
+verification/captures/
+
+# Le journal du projet. Decision de Flow le 2026-10-05 : il reste prive.
+# C'est un document de travail, pas de la documentation publique.
+.journal/
+docs/journal*.md
+
+# Une cle privee de signature ne doit JAMAIS entrer dans le depot. Si elle
+# fuite, n'importe qui peut fabriquer un fil d'actualites que tous les
+# Cairn installes croiront. Ces motifs sont un filet, pas une garantie :
+# la regle est de ne pas en deposer, pas de compter sur le filet.
+*-privee.txt
+*.privee.txt
+cairn-actualites-privee.txt
+*.pem
+*.key

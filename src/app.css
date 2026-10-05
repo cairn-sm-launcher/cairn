@@ -1,0 +1,793 @@
+/* ------------------------------------------------------------------ */
+/*  Cairn, feuille d'application.                                       */
+/*                                                                      */
+/*  Elle est globale et non decoupee par composant, volontairement : les */
+/*  regles de la maquette se repondent entre elles (une tuile survolee   */
+/*  pilote ses quatre couches et le SVG qu'elle contient), et les        */
+/*  eclater en styles portees par composant reviendrait a les reecrire.  */
+/*  Ce qui est propre a un composant vit dans son bloc <style> a lui.    */
+/*                                                                      */
+/*  Le contenu vient de shootmania-launcher-demo.html, lot 17, a une     */
+/*  exception pres : la police n'est plus chargee depuis Google Fonts.   */
+/* ------------------------------------------------------------------ */
+
+/* Geist et Geist Mono, de Vercel, sous licence SIL OFL 1.1. Le texte de
+   la licence est a cote des fichiers. Les deux fichiers sont variables :
+   une seule requete couvre toutes les graisses de 100 a 900, et rien ne
+   sort de l'application, ce qui vaut pour la politique de securite du
+   contenu comme pour un poste hors ligne. */
+@font-face {
+  font-family: 'Geist';
+  src: url('./polices/geist.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('./polices/geist-mono.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+  @property --sweep { syntax: '<percentage>'; initial-value: 0%; inherits: false; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0A0C0F; overflow: hidden; }
+  body {
+    font-family: -apple-system, 'SF Pro Text', 'Geist', system-ui, sans-serif;
+    color: #F4F6F8;
+  }
+  #app { height: 100%; }
+  input { font-family: inherit; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  .root {
+    height: 100%; position: relative; overflow: hidden;
+    display: flex; flex-direction: column; background: #0A0C0F;
+  }
+
+  /* ambiance */
+  .waves { position: absolute; inset: -25% -35%; pointer-events: none; filter: blur(var(--wave-blur)); opacity: var(--wave-op); }
+  .waves span { position: absolute; display: block; border-radius: 50%; opacity: 0; }
+  .w1 { width: 1180px; height: 700px; top: -2%; background: radial-gradient(closest-side, var(--w1), transparent); animation: drift var(--d1) ease-in-out infinite; }
+  .w2 { width: 1040px; height: 620px; top: 40%; background: radial-gradient(closest-side, var(--w2), transparent); animation: drift var(--d2) ease-in-out infinite; animation-delay: calc(var(--d2) * -0.38); }
+  .w3 { width: 950px; height: 560px; top: 18%; background: radial-gradient(closest-side, var(--w3), transparent); animation: drift var(--d3) ease-in-out infinite; animation-delay: calc(var(--d3) * -0.72); }
+  @keyframes drift {
+    0%   { transform: translate(-16vw, 0) scale(1); opacity: 0; }
+    20%  { opacity: 0.8; }
+    50%  { transform: translate(44vw, 4%) scale(1.15); opacity: 0.66; }
+    80%  { opacity: 0.46; }
+    100% { transform: translate(114vw, -2%) scale(1.02); opacity: 0; }
+  }
+  .glow {
+    position: absolute; inset: 0; pointer-events: none; transform-origin: 8% 0%;
+    background: radial-gradient(1100px 560px at 10% -8%, var(--glow-color), transparent 60%);
+    animation: glow-breathe 17s ease-in-out infinite;
+  }
+  @keyframes glow-breathe { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+
+  /* tuiles */
+  .tile {
+    position: relative; overflow: hidden; user-select: none;
+    background: #13161B; border: 1px solid rgba(255,255,255,0.06); border-radius: 15px;
+    padding: var(--tuile-marge, 20px); min-height: var(--tuile-hauteur, 178px); cursor: pointer;
+    /* isolation confine le mode de fusion de la teinte à la tuile, sinon elle
+       irait chercher le fond de la page en dessous. */
+    isolation: isolate;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .tile:hover { border-color: rgba(255,255,255,0.14); }
+
+  /* La capture de jeu en fond. Elle respire au survol au lieu d'être couverte. */
+  .tile-photo {
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background-size: cover; background-position: center;
+    opacity: 0.46; transform: scale(1.02);
+    transition: opacity 0.34s ease, transform 0.7s cubic-bezier(.2,.75,.25,1);
+  }
+  .tile:hover .tile-photo { opacity: 0.84; transform: scale(1.07); }
+  /* Une illustration se pose sur le fond de la tuile, elle n'a rien à masquer.
+     Surtout, elle est en "contain" et non en "cover" : une capture peut être
+     rognée sans dommage, une illustration non, on perdrait la base du sujet
+     dès que la fenêtre s'élargit. Le fond étant transparent, "contain" ne
+     laisse aucune bande visible, juste du vide sur du vide. */
+  .tile.art .tile-photo {
+    background-size: contain; background-repeat: no-repeat;
+    /* Le sujet est peint dans la moitie droite du dessin. On ancre donc l'image
+       a droite : des que la tuile est plus large que le rapport du dessin, tout
+       le jeu se prend a gauche, la ou vit le texte. */
+    background-position: right center;
+    opacity: 0.80; transform: scale(1);
+  }
+  .tile.art:hover .tile-photo { opacity: 1; transform: scale(1.05); }
+
+
+  /* Une planche vectorielle n'est pas une image de fond, elle vit dans le DOM.
+     Elle garde le meme jeu d'opacite et de mise a l'echelle que les captures. */
+  .tile.art .tile-vec {
+    background: none; opacity: 0.86; transform: scale(1);
+    transition: opacity 0.34s ease, transform 0.7s cubic-bezier(.2,.75,.25,1);
+  }
+  .tile.art:hover .tile-vec { opacity: 1; transform: scale(1.05); }
+
+/* ------------------------------------------------------------------ */
+/* Illustrations vivantes. Les trois planches sont des SVG poses dans  */
+/* le DOM, plus des images de fond : chaque calque reste adressable.   */
+/* ------------------------------------------------------------------ */
+.tile-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ------------------------------------------------------------------ */
+/* le defile de stations                                               */
+/* ------------------------------------------------------------------ */
+/* Un flux continu fait d'un nombre fixe d'objets. Chaque objet avance d'une
+   station par cycle et prend l'aspect de son voisin, un objet neuf naît en
+   amont, le dernier s'efface en aval. Le champ est donc identique au debut et
+   a la fin du cycle, la boucle ne se voit pas, et comme tous les objets sont
+   en phase l'ensemble derive d'un pas, ce qui se lit comme un ruissellement.
+   La cadence compte autant que le mecanisme : a moins d'un pixel par seconde on
+   ne percoit plus un mouvement mais une suite de pas de pixel. Chaque flux
+   porte donc sa propre duree, de sept dixiemes a deux secondes par station. */
+.fx-flow {
+  transform-box: fill-box; transform-origin: center;
+  opacity: var(--o0);
+  animation: fx-flow var(--dur, 1.2s) linear infinite;
+}
+@keyframes fx-flow {
+  from { transform: translate(0px, 0px) scale(var(--s0, 1)); opacity: var(--o0); }
+  to   { transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(var(--s1, 1)); opacity: var(--o1); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Popular                                                             */
+/* ------------------------------------------------------------------ */
+/* La lueur est portee par le parent et la levitation par l'enfant, dans cet
+   ordre precis : un filtre calcule une image de ce qu'il contient, une
+   translation posee au dessus de lui deplacerait cette image. */
+.po-glow { animation: po-breathe 7.3s ease-in-out infinite alternate; }
+@keyframes po-breathe {
+  from { filter: drop-shadow(0 0 7px rgba(255,255,255,0.20)); }
+  to   { filter: drop-shadow(0 0 22px rgba(255,255,255,0.60)); }
+}
+.po-lift {
+  transform-box: fill-box; transform-origin: center;
+  animation: po-float 4.8s linear infinite;
+}
+/* Neuf poses echantillonnees sur une sinusoide : la courbe part et revient a la
+   position dessinee, donc a l'arret le losange est exactement ou Flow l'a mis. */
+@keyframes po-float {
+  0%    { transform: translateY(0); }
+  12.5% { transform: translateY(-9.2px); }
+  25%   { transform: translateY(-13px); }
+  37.5% { transform: translateY(-9.2px); }
+  50%   { transform: translateY(0); }
+  62.5% { transform: translateY(9.2px); }
+  75%   { transform: translateY(13px); }
+  87.5% { transform: translateY(9.2px); }
+  100%  { transform: translateY(0); }
+}
+.po-lift polygon { stroke: #23282f; stroke-width: 0.9; stroke-linejoin: round; }
+/* le petit cube decoratif, douze aretes recalculees a chaque pose */
+.po-edge { fill: none; stroke: #666; stroke-linecap: round; }
+
+/* ------------------------------------------------------------------ */
+/* Browse                                                              */
+/* ------------------------------------------------------------------ */
+.br-cube { transform-box: fill-box; transform-origin: center;
+  animation: br-thunk 8.4s linear infinite; }
+@keyframes br-thunk {
+  0%, 47% { transform: scale(1); }
+  53%     { transform: scale(1.02); }
+  60%,100%{ transform: scale(1); }
+}
+/* Au repos les trois faces sont a la position dessinee, deja ecartees. La
+   fermeture les fait rentrer chacune le long de sa normale jusqu'a ce que
+   leurs aretes coincident vraiment. */
+.br-face { animation: br-open 8.4s linear infinite; }
+@keyframes br-open {
+  0%, 46%  { transform: translate(0px, 0px);
+             animation-timing-function: cubic-bezier(.18,1.4,.4,1); }
+  53%, 76% { transform: translate(var(--cx), var(--cy));
+             animation-timing-function: cubic-bezier(.45,0,.5,1); }
+  100%     { transform: translate(0px, 0px); }
+}
+/* Les vitres grandissent jusqu'a paver exactement leur face et deviennent
+   opaques, chacune dans la valeur de sa propre face : le cube se remplit
+   d'aplats au moment ou il se referme, et redevient ajoure en s'ouvrant. */
+.br-glass {
+  transform-box: fill-box; transform-origin: center;
+  opacity: .33;
+  animation: br-fill 8.4s linear infinite;
+}
+.br-glass > polygon { fill: inherit; opacity: 1; }
+@keyframes br-fill {
+  0%, 46%  { transform: scale(1);         opacity: .33; }
+  53%, 76% { transform: scale(var(--gs)); opacity: 1; }
+  100%     { transform: scale(1);         opacity: .33; }
+}
+/* Les ondes. Il n'y en a aucune au repos : c'est l'impact des faces qui se
+   rejoignent qui les fait naître. Six ondes identiques partent en cascade du
+   point de choc, s'ouvrent et s'effacent completement avant le choc suivant. */
+.br-wave {
+  transform-box: fill-box; transform-origin: center;
+  fill: none; stroke: #8d949c; stroke-width: 1.6; vector-effect: non-scaling-stroke;
+  opacity: 0;
+  animation: br-wave 8.4s linear infinite;
+  animation-delay: calc(var(--i) * 0.33s);
+}
+@keyframes br-wave {
+  0%, 53%   { transform: scale(0.03); opacity: 0;
+              animation-timing-function: cubic-bezier(.08,.72,.28,1); }
+  57%       { opacity: 0.62; }
+  90%, 100% { transform: scale(1);    opacity: 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Favorites                                                           */
+/* ------------------------------------------------------------------ */
+.fa-podium { animation: fa-breathe 8.2s ease-in-out infinite alternate; }
+@keyframes fa-breathe {
+  from { filter: drop-shadow(0 0 7px rgba(255,255,255,0.16)); }
+  to   { filter: drop-shadow(0 0 20px rgba(255,255,255,0.50)); }
+}
+.fa-star {
+  transform-box: fill-box; transform-origin: bottom;
+  animation: fa-beat 9s ease-in-out infinite;
+}
+/* Deux coups rapproches, puis sept secondes de silence. */
+@keyframes fa-beat {
+  0%   { transform: scale(1);     filter: drop-shadow(0 0 6px rgba(255,255,255,0.22)); }
+  3%   { transform: scale(1.055); filter: drop-shadow(0 0 28px rgba(255,255,255,0.95)); }
+  9%   { transform: scale(1.005); filter: drop-shadow(0 0 9px rgba(255,255,255,0.32)); }
+  13%  { transform: scale(1.035); filter: drop-shadow(0 0 20px rgba(255,255,255,0.70)); }
+  23%  { transform: scale(1);     filter: drop-shadow(0 0 6px rgba(255,255,255,0.22)); }
+  100% { transform: scale(1);     filter: drop-shadow(0 0 6px rgba(255,255,255,0.22)); }
+}
+/* L'onde epouse le pied du podium, ellipse de rapport racine de 3, dessinee
+   sous lui et demarrant a sa taille, donc invisible, puis elle en sort. */
+.fa-ring {
+  transform-box: fill-box; transform-origin: center;
+  fill: none; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke;
+  opacity: 0;
+  animation: fa-wave 9s cubic-bezier(.15,.75,.35,1) infinite;
+}
+.fa-ring-b { animation-delay: 0.9s; }
+@keyframes fa-wave {
+  0%   { transform: scale(1);    opacity: 0; }
+  4%   { opacity: 0.40; }
+  46%  { transform: scale(1.34); opacity: 0; }
+  100% { transform: scale(1.34); opacity: 0; }
+}
+/* Le croisillon du sol : un eclat le traverse de gauche a droite, disparaît
+   sous le podium puis ressort de l'autre cote. Le retard de chaque ligne suit
+   sa position horizontale. Premiere version beaucoup trop discrete : des traits
+   de 0,5 px en gris moyen ne se voient pas davantage une fois blanchis. Il faut
+   epaissir, monter franchement en luminosite et poser un halo. */
+.fa-tick {
+  animation: fa-sweep 9s linear infinite;
+  animation-delay: calc(var(--d) * 2.2s);
+}
+@keyframes fa-sweep {
+  0%, 26%, 100% { stroke: #666; stroke-width: 0.5px; filter: none; }
+  6%            { stroke: #f2f6fa; stroke-width: 1.5px;
+                  filter: drop-shadow(0 0 6px rgba(255,255,255,0.85)); }
+  16%           { stroke: #9aa2ab; stroke-width: 0.8px;
+                  filter: drop-shadow(0 0 2px rgba(255,255,255,0.25)); }
+}
+
+/* ------------------------------------------------------------------ */
+/* quand jouent ces animations                                         */
+/* ------------------------------------------------------------------ */
+/* Rien ne bouge tant que le curseur n'est pas sur la tuile, et rien du tout si
+   l'interrupteur des reglages est ferme. La regle porte sur tout ce que
+   contient le SVG, ce qui evite d'avoir a lister chaque classe animee.
+   ATTENTION, ce bloc doit rester le dernier de la feuille : a specificite
+   egale, le raccourci animation d'une regle declaree plus bas remettrait
+   l'etat a running, et tout se remettrait a tourner au repos. */
+.tile-svg * { animation-play-state: paused; }
+.root:not(.no-anim) .tile:hover .tile-svg * { animation-play-state: running; }
+
+/* Interrupteur general. Le fond garde ses couleurs, il cesse simplement de
+   bouger : les trois halos sont figes a des positions choisies plutot que
+   laisses a l'opacite nulle de leur premiere image. */
+.no-anim .glow { animation: none; opacity: 0.8; transform: scale(1.06); }
+.no-anim .waves span { animation: none; }
+.no-anim .w1 { opacity: 0.58; transform: translate(4vw, 0) scale(1.06); }
+.no-anim .w2 { opacity: 0.52; transform: translate(44vw, 3%) scale(1.12); }
+.no-anim .w3 { opacity: 0.40; transform: translate(82vw, -1%) scale(1.02); }
+.no-anim .ring-run { display: none; }   /* fige mal, autant le retirer */
+
+@media (prefers-reduced-motion: reduce) {
+  .tile-svg * { animation: none; }
+  .fa-ring { opacity: 0; }
+}
+
+  /* Voile diagonal, il garde le texte lisible sans noyer l'image. */
+  .tile-scrim {
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: linear-gradient(118deg, rgba(10,12,15,0.94) 0%, rgba(10,12,15,0.76) 46%, rgba(10,12,15,0.30) 100%);
+    transition: opacity 0.34s ease;
+  }
+  .tile:hover .tile-scrim { opacity: 0.80; }
+  /* Sur une tuile illustree le voile part plus a l'horizontale et tient plus
+     longtemps : le sous-titre d'un serveur peut etre long, il doit rester
+     lisible meme quand le dessin remonte vers la gauche. */
+  .tile.art .tile-scrim { background: linear-gradient(102deg, rgba(10,12,15,0.92) 0%, rgba(10,12,15,0.84) 32%, rgba(10,12,15,0.26) 62%, rgba(10,12,15,0) 84%); }
+
+  /* Le balayage, deux couches qui partagent la même découpe. La teinte prend
+     la couleur et laisse la luminance de l'image intacte, le glacis garde le
+     balayage visible sur les zones sombres où il n'y a rien à teinter. */
+  .tile-tint, .tile-glaze {
+    position: absolute; inset: 0; pointer-events: none;
+    clip-path: polygon(0 0, -30% 0, 0 100%, 0 100%);
+    transition: clip-path 0.34s cubic-bezier(.2,.75,.25,1);
+  }
+  .tile-tint { z-index: 2; mix-blend-mode: color; opacity: 0.55; }
+  .tile-glaze { z-index: 3; }
+  .tile:hover .tile-tint, .tile:hover .tile-glaze { clip-path: polygon(0 0, 100% 0, 130% 100%, 0 100%); }
+
+  .tile-body { position: relative; z-index: 4; display: flex; flex-direction: column; height: 100%; }
+  .tile.hollow { background: rgba(255,255,255,0.015); border: 1px dashed rgba(255,255,255,0.16); box-shadow: inset 0 2px 14px rgba(0,0,0,0.5); }
+
+  .btn-cta { transition: filter 0.15s ease, transform 0.12s ease; }
+  .btn-cta:hover { filter: brightness(0.92); }
+  .btn-cta:active { transform: scale(0.98); }
+  .btn-ghost { transition: background 0.15s ease, border-color 0.15s ease; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.26) !important; }
+  .icon-btn { transition: background 0.15s ease, color 0.15s ease; }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); color: #F4F6F8; }
+  .tabbtn, .seg { transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+
+  /* Bandeau fusionne : profil a gauche, onglets au centre, etat et icones a
+     droite. Les onglets ne sont plus des pavés pleins sur toute la largeur mais
+     des libelles soulignes a leur taille, ce qui rend une cinquantaine de
+     pixels de haut au contenu. */
+  /* Les onglets sont centres sur la fenetre, pas sur la place qui reste entre
+     le profil et les icones : les deux groupes lateraux prennent la meme part,
+     la rangee du milieu garde sa taille propre. */
+  /* La fleche Precedent vit ici, a gauche du profil, et garde sa place
+     meme eteinte. Le centrage des onglets n'en souffre pas : les deux
+     groupes lateraux prennent la meme part, flex 1 1 0, donc ce qui
+     change de largeur a gauche ne deplace pas le milieu. */
+  .head3-left { flex: 1 1 0; min-width: 0; display: flex; align-items: center; gap: 10px; }
+  .tab3-row { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 26px; }
+  .tab3 {
+    position: relative; display: flex; align-items: center; gap: 7px;
+    padding: 9px 2px 11px; background: transparent; border: 0;
+    font-size: 14px; font-weight: 600; color: #9AA3AD; cursor: pointer;
+    white-space: nowrap; transition: color 0.15s ease;
+  }
+  .tab3:hover { color: #F4F6F8; }
+  .tab3.on { color: #F4F6F8; }
+  .tab3 i { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; opacity: 0; transition: opacity 0.15s ease; }
+  .tab3.on i { opacity: 1; }
+  .keyhint { font-size: 10px; font-weight: 600; color: #838C96; border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; padding: 3px 5px; line-height: 1; }
+  .head3-right { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+  /* **L'etat du jeu n'est plus qu'une pastille.** Il portait son libelle
+     en toutes lettres tant que le bandeau avait trois onglets et que la
+     droite ne contenait que trois icones. A cinq onglets et avec le
+     profil passe a droite, ces 110 px de texte poussaient le groupe
+     jusqu'a toucher le dernier onglet.
+
+     Ce qu'on perd est faible : la pastille dit deja si le jeu tourne,
+     c'est une information binaire et coloree, et la phrase complete reste
+     dans l'infobulle. Ce qu'on gagne est un groupe qui respire.
+
+     L'indicateur en bas d'ecran prevu par Flow reprendra ce role un jour,
+     et la pastille pourra alors quitter le bandeau completement. */
+  .gamestate { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #9AA3AD; margin-right: 2px; white-space: nowrap; }
+  .gamestate .lbl { display: none; }
+  .gamestate .pastille { width: 7px; height: 7px; border-radius: 50%; background: #5A6470; display: inline-block; flex-shrink: 0; }
+  /* Le repli se fait en deux temps depuis l'etape 30, parce que la rangee
+     porte cinq onglets au lieu de trois et que le profil est passe a
+     droite. On lache donc ce qui coute le plus de largeur pour ce qu'il
+     apprend, dans cet ordre.
+
+     En fenetre etroite on lache le nom du profil, la pastille coloree et
+     son initiale suffisant a le reconnaitre, et on resserre l'ecart entre
+     les onglets. L'etat du jeu, lui, est deja reduit a sa pastille a
+     toutes les largeurs. */
+  @media (max-width: 1150px) {
+    .tab3-row { gap: 16px; }
+  }
+  .chip { transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+  .server-card { transition: border-color 0.15s ease; }
+  .server-card:hover { border-color: rgba(255,255,255,0.18); }
+  .reorder-btn { transition: background 0.15s ease; }
+  .reorder-btn:hover { background: rgba(255,255,255,0.08); }
+  .dot { cursor: pointer; }
+  .arrow-btn { transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+  .arrow-btn:hover { background: rgba(255,255,255,0.07); color: #F4F6F8; }
+  .ring-run { animation-name: ring-fill; animation-timing-function: linear; animation-iteration-count: infinite; }
+  @keyframes ring-fill { from { stroke-dashoffset: 91.11; } to { stroke-dashoffset: 0; } }
+  .helpdot { transition: background 0.15s ease, color 0.15s ease; }
+  .helpdot:hover { background: rgba(255,255,255,0.16); color: #F4F6F8; }
+  .swatch { transition: transform 0.14s ease; }
+  .swatch:hover { transform: scale(1.12); }
+  .friend-row { transition: background 0.15s ease; }
+  .friend-row:hover { background: rgba(255,255,255,0.05); }
+  .pick-row { transition: background 0.15s ease, border-color 0.15s ease; }
+  .pick-row:hover { background: rgba(255,255,255,0.06); }
+  .profile-btn { transition: background 0.15s ease, border-color 0.15s ease; }
+  .profile-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.14); }
+  .profile-btn:hover .chev { opacity: 1; }
+
+  /* Les libelles des boutons de l'assistant changent d'une etape a l'autre.
+     Sans largeur plancher, le bouton de droite etant aligne a droite, son bord
+     gauche se deplacerait. On fige donc la largeur des deux. */
+  .onb-foot button { min-width: 152px; justify-content: center; }
+
+  .fade-in { animation: fade-in 0.18s ease; }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  .step-in { animation: step-in 0.3s cubic-bezier(.2,.7,.3,1); }
+  @keyframes step-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+  .slide-in { animation: slide-in 0.35s cubic-bezier(.2,.7,.3,1); }
+  @keyframes slide-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+  ul.news { margin: 10px 0 0; padding-left: 16px; }
+  ul.news li { margin-bottom: 5px; }
+
+  .txt { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #F4F6F8; padding: 8px 11px; font-size: 12.5px; outline: none; }
+  .txt:focus { border-color: rgba(255,255,255,0.3); }
+  .colorin { width: 34px; height: 30px; padding: 0; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; cursor: pointer; }
+
+  .display { font-family: -apple-system, 'SF Pro Display', 'Geist', sans-serif; letter-spacing: -0.01em; }
+  .mono { font-family: ui-monospace, 'SF Mono', 'Geist Mono', monospace; }
+  /* ------------------------------------------------------------------ */
+  /*  La colonne de contenu                                               */
+  /* ------------------------------------------------------------------ */
+  /*  Plafonnee a 1280 points et centree. Trois arguments convergent vers
+      cette valeur : le confort de lecture plafonne autour de 65 a 75
+      caracteres par ligne, une illustration de tuile a un rapport natif
+      et cesse de gagner quoi que ce soit passe une certaine taille, et
+      traverser un ecran de 27 pouces pour atteindre trois tuiles est un
+      cout de deplacement oculaire, pas un confort. Au dela, l'espace
+      devient une marge assumee.
+
+      L'ambiance coloree, elle, continue jusqu'aux bords de la fenetre :
+      elle est portee par .root et pas par .pad, donc l'application ne
+      parait jamais mise en boite.
+
+      1280 est la largeur du bloc entier, bordures comprises, et c'est
+      aussi la largeur par defaut de la fenetre : sur une fenetre de
+      1280, rien ne change par rapport a avant ce reglage.
+
+      Les gouttieres croissent avec la fenetre au lieu de sauter a un
+      seuil. L'ancienne regle passait de 44 a 20 px d'un coup a 900 px de
+      large, ce qui se voyait. clamp() fait la meme chose en continu et
+      s'arrete a la meme valeur haute.                                    */
+  .pad {
+    width: 100%;
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: clamp(20px, 3.44vw, 44px);
+    padding-right: clamp(20px, 3.44vw, 44px);
+  }
+
+
+  /* ------------------------------------------------------------------ */
+  /*  La densite                                                          */
+  /* ------------------------------------------------------------------ */
+  /*  L'ecran Jouer empile trois bandes : le bandeau, les tuiles, les
+      actualites. Jusqu'au lot 19d elles se touchaient presque, 24 et
+      28 px, et l'oeil devait separer lui meme trois choses qui n'ont
+      rien a voir entre elles. Flow a demande du blanc, et de le calibrer
+      sur la hauteur du bandeau.
+
+      C'est le bon etalon. Le bandeau fait 78 px, c'est le seul bloc dont
+      la hauteur est fixe et connue, et s'y referer donne un rythme qui
+      tient a toutes les tailles de fenetre : les separations sont des
+      fractions d'une hauteur deja presente a l'ecran, et pas des nombres
+      tires au hasard.
+
+      Trois reglages, dans Apparence. Compact est l'espacement d'avant,
+      au point pres, pour qui trouve que le blanc est de la place perdue.
+      Equilibre, par defaut, pose une demi hauteur de bandeau sous le
+      bandeau et presque une pleine entre les tuiles et les actualites.
+      Aere monte d'un cran.                                               */
+  /*  Premiere version, corrigee sur retour de Flow : elle ne jouait que
+      sur deux ecarts, quinze pixels separaient compact d'equilibre, et
+      il a fallu deux captures comparees pour voir la difference. Un
+      reglage qu'on ne voit pas est un reglage qui ne sert a rien.
+
+      La densite tient donc maintenant cinq mesures, et elle les tient
+      toutes ensemble : les deux separations de l'ecran Jouer, la
+      gouttiere entre les tuiles et entre les cartes d'actualites, la
+      marge interieure d'une tuile et sa hauteur minimale. C'est ce qui
+      fait la difference entre un reglage d'espacement et une vraie
+      densite : la page entiere change d'allure, pas deux blancs.       */
+  /*  Les selecteurs ne portent volontairement pas `.root` : l'apercu des
+      reglages porte le meme attribut sur une petite boite, et il herite
+      ainsi des memes nombres plutot que d'en recopier une version
+      approchee. Un apercu qui ment est pire que pas d'apercu.          */
+  .root,
+  [data-densite='compact'] {
+    --bandeau: 78px;
+    /* compact : l'espacement d'avant le lot 19d, au point pres */
+    --air-haut: 24px;
+    --air-section: 28px;
+    --gouttiere: clamp(12px, 1.25vw, 16px);
+    --tuile-marge: 20px;
+    --tuile-hauteur: 178px;
+  }
+  [data-densite='equilibre'] {
+    --air-haut: calc(var(--bandeau) * 0.62);
+    --air-section: calc(var(--bandeau) * 0.85);
+    --gouttiere: clamp(16px, 1.7vw, 22px);
+    --tuile-marge: 25px;
+    --tuile-hauteur: 198px;
+  }
+  [data-densite='aere'] {
+    --air-haut: var(--bandeau);
+    --air-section: calc(var(--bandeau) * 1.35);
+    --gouttiere: clamp(22px, 2.3vw, 30px);
+    --tuile-marge: 31px;
+    --tuile-hauteur: 222px;
+  }
+
+/* ------------------------------------------------------------------ */
+/*  Styles internes des trois planches.                                 */
+/*                                                                      */
+/*  Ils vivaient dans un <style> a l'interieur de chaque SVG. Svelte lit */
+/*  les accolades d'un <style> imbrique comme des expressions, donc ils  */
+/*  remontent ici. Aucun risque de collision : Illustrator nomme ses     */
+/*  classes st0, st1, st2, et les trois planches ont ete prefixees fa-,  */
+/*  po- et br- des le lot 10.                                           */
+/* ------------------------------------------------------------------ */
+
+/* --- Favorites, styles issus de l'export Illustrator --- */
+.fa-st0, .fa-st1, .fa-st2, .fa-st3, .fa-st4, .fa-st5, .fa-st6 {
+  fill: none;
+  stroke: #666;
+  stroke-miterlimit: 10;
+}
+.fa-st1 {
+  opacity: 0;
+  stroke-width: 0px;
+}
+.fa-st7 {
+  fill: #fff;
+}
+.fa-st2 {
+  stroke-width: 1.06px;
+}
+.fa-st3 {
+  stroke-width: 1.1px;
+}
+.fa-st4 {
+  stroke-width: .5px;
+}
+.fa-st8 {
+  fill: #666;
+}
+.fa-st5 {
+  stroke-width: 1.17px;
+}
+.fa-st6 {
+  stroke-width: 1.17px;
+}
+.fa-st9 {
+  fill: #eee;
+}
+.fa-st10 {
+  fill: #ccc;
+}
+.fa-st11 {
+  fill: #aaa;
+}
+
+/* --- Popular, styles issus de l'export Illustrator --- */
+.po-st0 {
+  fill: #6f6f6f;
+}
+.po-st0, .po-st1 {
+  opacity: .4;
+}
+.po-st2 {
+  opacity: .6;
+}
+.po-st3, .po-st4, .po-st5, .po-st6, .po-st7, .po-st8, .po-st9 {
+  stroke-miterlimit: 10;
+}
+.po-st3, .po-st4, .po-st6, .po-st7, .po-st8 {
+  fill: none;
+}
+.po-st3, .po-st4, .po-st7 {
+  stroke: #666;
+}
+.po-st3, .po-st10, .po-st5, .po-st11, .po-st6, .po-st12, .po-st13, .po-st9, .po-st14 {
+  stroke-width: .55px;
+}
+.po-st4 {
+  opacity: 0;
+  stroke-width: 0px;
+}
+.po-st10, .po-st5, .po-st11, .po-st6, .po-st12, .po-st8, .po-st13, .po-st9, .po-st14 {
+  stroke: #fff;
+}
+.po-st10, .po-st11, .po-st13, .po-st14 {
+  stroke-linejoin: round;
+}
+.po-st10, .po-st15 {
+  fill: #bbb;
+}
+.po-st5, .po-st13 {
+  fill: #aaa;
+}
+.po-st16 {
+  fill: url(#po-Dégradé_sans_nom_14);
+}
+.po-st11, .po-st17 {
+  fill: #ddd;
+}
+.po-st18 {
+  fill: gray;
+}
+.po-st18, .po-st19 {
+  opacity: .8;
+}
+.po-st20 {
+  fill: #fff;
+}
+.po-st12 {
+  stroke-linejoin: bevel;
+}
+.po-st12, .po-st21, .po-st9, .po-st14 {
+  fill: #ccc;
+}
+.po-st7 {
+  stroke-width: 1.1px;
+}
+.po-st22 {
+  fill: #222;
+}
+.po-st23, .po-st24 {
+  opacity: .2;
+}
+.po-st25 {
+  fill: #777;
+  opacity: .6;
+}
+.po-st26 {
+  fill: #333;
+}
+.po-st27 {
+  fill: #eee;
+}
+.po-st8 {
+  stroke-width: 1.5px;
+}
+.po-st28 {
+  fill: #888;
+}
+.po-st29 {
+  fill: #353535;
+}
+.po-st24 {
+  fill: #666;
+}
+
+/* --- Browse, styles issus de l'export Illustrator --- */
+.br-st0 {
+  fill: #4f4f4f;
+}
+.br-st1 {
+  clip-path: url(#br-clippath-6);
+}
+.br-st2 {
+  clip-path: url(#br-clippath-7);
+}
+.br-st3 {
+  opacity: .5;
+}
+.br-st4 {
+  opacity: 0;
+  stroke-width: 0px;
+}
+.br-st4, .br-st5 {
+  fill: none;
+}
+.br-st4, .br-st6, .br-st7, .br-st8 {
+  stroke: #666;
+  stroke-miterlimit: 10;
+}
+.br-st9 {
+  clip-path: url(#br-clippath-4);
+}
+.br-st10 {
+  opacity: .4;
+}
+.br-st11 {
+  fill: #4a4a4a;
+}
+.br-st12 {
+  opacity: .7;
+}
+.br-st13 {
+  fill: #3e3e3e;
+}
+.br-st14 {
+  clip-path: url(#br-clippath-9);
+}
+.br-st15 {
+  opacity: .8;
+}
+.br-st16 {
+  opacity: .3;
+}
+.br-st17 {
+  fill: #5b5b5b;
+}
+.br-st18 {
+  fill: #606060;
+}
+.br-st6 {
+  fill: #eee;
+}
+.br-st6, .br-st7, .br-st8 {
+  stroke-width: .5px;
+}
+.br-st19 {
+  clip-path: url(#br-clippath-1);
+}
+.br-st20 {
+  isolation: isolate;
+}
+.br-st21 {
+  clip-path: url(#br-clippath-5);
+}
+.br-st22 {
+  clip-path: url(#br-clippath-8);
+}
+.br-st23 {
+  fill: #666;
+}
+.br-st24 {
+  fill: #444;
+}
+.br-st25 {
+  opacity: .9;
+}
+.br-st26 {
+  fill: #555;
+}
+.br-st27 {
+  clip-path: url(#br-clippath-3);
+}
+.br-st28 {
+  opacity: .6;
+}
+.br-st29 {
+  fill: #333;
+}
+.br-st7 {
+  fill: #ccc;
+}
+.br-st8 {
+  fill: #aaa;
+}
+.br-st30 {
+  fill: #fff;
+  opacity: .33;
+}
+.br-st31 {
+  opacity: .1;
+}
+.br-st32 {
+  fill: #393939;
+}
+.br-st33 {
+  clip-path: url(#br-clippath-2);
+}
+.br-st34 {
+  opacity: .2;
+}
+.br-st35 {
+  clip-path: url(#br-clippath);
+}

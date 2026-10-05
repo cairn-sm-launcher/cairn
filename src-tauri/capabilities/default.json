@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Le strict necessaire pour la fenetre principale. Toute permission ajoutee ici agrandit la surface d'attaque, donc on n'en ajoute qu'avec une raison ecrite dans le journal du projet.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}

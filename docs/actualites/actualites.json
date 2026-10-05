@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "publie": 1791100000,
+  "articles": [
+    {
+      "id": "2026-10-04-bienvenue",
+      "titre": "Cairn ouvre son fil d'actualites",
+      "categorie": "technique",
+      "date": 1791100000,
+      "resume": "Les annonces de la communaute arrivent directement dans le launcher, sans compte et sans serveur.",
+      "langue": "fr",
+      "epingle": true,
+      "corps": "Les actualites que tu lis ici viennent d'un fichier public, **signe**, que Cairn verifie avant de l'afficher.\n\nConcretement :\n\n- aucun compte, aucune inscription, aucune donnee personnelle\n- le fil est garde sur ta machine, donc il s'affiche meme hors ligne\n- une annonce se propose comme une modification sur le depot public\n\n## Ce qu'on peut y mettre\n\nDes annonces de coupe, des mappacks, des mises a jour de mode, des appels a joueurs, des questions techniques. Si tu veux publier quelque chose, la marche a suivre est sur le depot.\n\n> Un fil dont la signature ne colle pas n'est pas affiche. C'est volontaire : mieux vaut pas d'actualites que des actualites que personne n'a ecrites."
+    },
+    {
+      "id": "2026-10-04-welcome",
+      "titre": "Cairn opens its news feed",
+      "categorie": "technique",
+      "date": 1791100000,
+      "resume": "Community announcements land straight in the launcher, with no account and no server.",
+      "langue": "en",
+      "epingle": true,
+      "corps": "The news you are reading comes from a public, **signed** file that Cairn verifies before showing it.\n\n- no account, no sign-up, no personal data\n- the feed is cached on your machine, so it shows up offline too\n- an announcement is proposed as a change on the public repository"
+    },
+    {
+      "id": "2026-10-03-coupe-atria",
+      "titre": "Coupe Atria, samedi 21h",
+      "categorie": "tournoi",
+      "date": 1791013600,
+      "resume": "Inscriptions ouvertes jusqu'a vendredi soir, en equipe de trois.",
+      "langue": "fr",
+      "epingle": false,
+      "corps": "La coupe hebdomadaire reprend samedi a 21h, en Elite, equipes de trois.\n\n1. Inscris ton equipe avant vendredi 20h\n2. Presente toi sur le serveur a 20h45\n3. Le premier tour commence a 21h precises\n\nLe mappack est celui de septembre, sans changement."
+    },
+    {
+      "id": "2026-10-02-frostline",
+      "titre": "Frostline, nouveau mappack",
+      "categorie": "maps",
+      "date": 1790927200,
+      "resume": "Huit maps Elite, disponibles sur ShootMania Exchange.",
+      "langue": "fr",
+      "epingle": false,
+      "corps": "Huit maps Elite, pensees pour le jeu en equipe serree.\n\nElles sont sur [ShootMania Exchange](https://sm.mania.exchange/) et sur les serveurs de la communaute depuis hier soir.\n\nRetours bienvenus, en particulier sur la troisieme, dont le temps de capture est peut-etre trop court."
+    },
+    {
+      "id": "2026-09-30-serveurs",
+      "titre": "Merci a ceux qui tiennent les serveurs",
+      "categorie": "entraide",
+      "date": 1790754400,
+      "resume": "Un rappel amical : les serveurs ne tournent pas tout seuls.",
+      "langue": "fr",
+      "epingle": false,
+      "corps": "Les serveurs de la communaute sont payes et administres par des gens qui le font sur leur temps.\n\nSi tu joues regulierement, un mot de remerciement coute peu et fait beaucoup."
+    }
+  ]
+}

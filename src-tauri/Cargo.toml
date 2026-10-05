@@ -1,0 +1,42 @@
+[package]
+name = "cairn-app"
+version = "0.1.0"
+description = "Cairn, launcher communautaire pour ShootMania"
+edition = "2021"
+rust-version = "1.77"
+license = "MIT"
+
+# Le binaire s'appelle cairn, donc le processus visible dans le gestionnaire
+# des taches et le fichier installe s'appellent cairn.exe.
+[[bin]]
+name = "cairn"
+path = "src/main.rs"
+
+[lib]
+name = "cairn_app"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cairn-core = { path = "../crates/cairn-core" }
+reqwest = { version = "0.13.3", features = ["json"] }
+sysinfo = { version = "0.36.1", default-features = false, features = ["system"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+dirs = "7.0.0"
+sys-locale = "0.3.2"
+tauri-plugin-window-state = "2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+
+[target."cfg(windows)".dependencies]
+winreg = "0.56.0"

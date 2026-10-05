@@ -1,0 +1,8 @@
+# La cle privee de signature ne doit JAMAIS entrer ici.
+# Si elle fuite, n'importe qui peut fabriquer un fil que tous les Cairn
+# installes croiront.
+cairn-actualites-privee.txt
+*.privee.txt
+*-privee.txt
+*.pem
+*.key
